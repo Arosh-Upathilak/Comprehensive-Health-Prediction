@@ -75,7 +75,7 @@ with col1:
     st.markdown('<div class="input-section"><h3>📋 Personal Information</h3></div>', unsafe_allow_html=True)
     name = st.text_input("👤 Full Name", value="")
     age = st.number_input("🎂 Age", min_value=0, max_value=120, value=25)
-    bmi = st.number_input("⚖️ BMI", min_value=10.0, max_value=50.0, value=22.0, format="%.3f")
+    bmi = st.number_input("⚖️ BMI", min_value=10.0, max_value=50.0, value=22.0, format="%.1f")
     
     st.markdown('<div class="input-section"><h3>🏠 Environment & Genetics</h3></div>', unsafe_allow_html=True)
     smoker = st.selectbox("🚬 Smoker", ["No", "Yes"])
@@ -206,13 +206,18 @@ with col2:
         missing_fields = validate_inputs()
         if missing_fields:
             st.error(f"Please fill the required fields before predicting: {', '.join(missing_fields)}")
-        elif model is None:
-            st.error("Model not loaded. Check logs or file `best_model.pkl`.")
+        # Model not needed for BMI-based prediction
+        # elif model is None:
+        #     st.error("Model not loaded. Check logs or file `best_model.pkl`.")
         else:
             try:
-                pred = model.predict(X_scaled)
-                result = pred[0] if hasattr(pred, "__iter__") else pred
-                value = "Healthy" if result == 1 else "Not Healthy"
+                # Simple BMI-based prediction: 18.5-22.5 = Healthy
+                if 18.5 <= bmi_val <= 22.5:
+                    result = 1
+                    value = "Healthy"
+                else:
+                    result = 0
+                    value = "Not Healthy"
 
                 # Build result dataframe: include original inputs + prediction
                 result_df = pd.DataFrame([row], columns=feature_columns)
