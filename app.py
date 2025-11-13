@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import joblib
 from io import BytesIO
+from sklearn.preprocessing import StandardScaler
+import numpy as np
 
 st.set_page_config(page_title="Health Predictor", page_icon="🏥", layout="wide")
 
@@ -116,9 +118,9 @@ age_val = int(age)
 feature_columns = [
     "age",
     "bmi",
+    "smoker",
     "living_environment_urban",
     "hereditary_stable",
-    "smoker",
     "diet",
     "physical_activity",
     "sleep_schedule",
@@ -132,9 +134,9 @@ feature_columns = [
 row = {
     "age": age_val,
     "bmi": bmi_val,
+    "smoker": smoker_val,
     "living_environment_urban": living_env_val,
     "hereditary_stable": hereditary_val,
-    "smoker": smoker_val,
     "diet": diet_val,
     "physical_activity": activity_val,
     "sleep_schedule": schedule_val,
@@ -147,6 +149,28 @@ row = {
 
 # Create DataFrame in the exact order defined by feature_columns
 X = pd.DataFrame([row], columns=feature_columns)
+
+# Apply StandardScaler with reasonable defaults for health data
+# Since we can't fit on single samples, we'll use approximate scaling
+scaler = StandardScaler()
+# Create a dummy dataset with reasonable ranges for health data to fit the scaler
+dummy_data = pd.DataFrame({
+    'age': [20, 30, 40, 50, 60, 70, 80],
+    'bmi': [18, 22, 25, 28, 32, 35, 40],
+    'smoker': [0, 1, 0, 1, 0, 1, 0],
+    'living_environment_urban': [0, 1, 0, 1, 0, 1, 0],
+    'hereditary_stable': [0, 1, 0, 1, 0, 1, 0],
+    'diet': [0, 1, 0, 1, 0, 1, 0],
+    'physical_activity': [0, 1, 0, 1, 0, 1, 0],
+    'sleep_schedule': [0, 1, 0, 1, 0, 1, 0],
+    'alcohol': [0, 1, 0, 1, 0, 1, 0],
+    'social_interaction': [0, 1, 0, 1, 0, 1, 0],
+    'supplements': [0, 1, 0, 1, 0, 1, 0],
+    'mental_health_management': [0, 1, 0, 1, 0, 1, 0],
+    'illness_count_last_year': [0, 1, 2, 3, 4, 5, 6]
+})
+scaler.fit(dummy_data)
+X_scaled = scaler.transform(X)
 
 # Helper: convert DataFrame to Excel bytes (try openpyxl first, fallback to xlsxwriter)
 def df_to_excel_bytes(df: pd.DataFrame) -> bytes:
@@ -186,12 +210,12 @@ with col2:
             st.error("Model not loaded. Check logs or file `best_model.pkl`.")
         else:
             try:
-                pred = model.predict(X)
+                pred = model.predict(X_scaled)
                 result = pred[0] if hasattr(pred, "__iter__") else pred
                 value = "Healthy" if result == 1 else "Not Healthy"
 
                 # Build result dataframe: include original inputs + prediction
-                result_df = X.copy()
+                result_df = pd.DataFrame([row], columns=feature_columns)
                 result_df.insert(0, "Name", name)
                 result_df["Prediction"] = value
 
@@ -214,4 +238,7 @@ with col2:
                 st.markdown('<div class="result-box not-healthy"><h2>❌ Prediction Error</h2><p>Unable to process your request</p></div>', unsafe_allow_html=True)
                 with st.expander("🔧 Technical Details"):
                     st.error(f"Error: {e}")
+                    st.write(f"Input shape: {X.shape}")
+                    st.write(f"Scaled input shape: {X_scaled.shape}")
+                    st.write(f"Feature values: {X.iloc[0].to_dict()}")
                     st.info("The model may expect different features. Please check the model configuration.")
